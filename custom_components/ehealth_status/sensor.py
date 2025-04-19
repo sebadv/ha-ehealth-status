@@ -7,7 +7,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     CoordinatorEntity,
-    UpdateFailed,
+    UpdateFailed
 )
 from .const import API_URL
 
@@ -16,60 +16,52 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up eHealth sensors from a config entry."""
+    """Set up sensors only for user‑selected services."""
+    selected = entry.options.get("services") or entry.data.get("services", [])
     coordinator = EHealthCoordinator(hass)
-    # Fetch the first batch of data
     await coordinator.async_config_entry_first_refresh()
 
     sensors = []
     for comp in coordinator.data:
-        cid = comp.get("id")
-        name = comp.get("name_nl")         # ← use name_nl
+        cid    = comp.get("id")
+        name   = comp.get("name_nl")
         status = comp.get("status_name")
-
-        if cid is None or name is None:
+        if not (cid and name and status):
             continue
-
+        if name not in selected:
+            continue
         sensors.append(EHealthSensor(coordinator, cid, name))
 
     if not sensors:
-        _LOGGER.warning("No eHealth components found to create sensors.")
-    else:
-        _LOGGER.debug("Creating %d eHealth sensors", len(sensors))
-
+        _LOGGER.warning("No selected eHealth services found.")
     async_add_entities(sensors, True)
 
 
 class EHealthCoordinator(DataUpdateCoordinator):
-    """Coordinator fetching eHealth component statuses every minute."""
+    """Fetch component status every minute."""
 
     def __init__(self, hass):
         super().__init__(
-            hass,
-            _LOGGER,
+            hass, _LOGGER,
             name="eHealth Status Coordinator",
             update_interval=SCAN_INTERVAL,
         )
 
     async def _async_update_data(self):
-        """Fetch data from the eHealth status API."""
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(API_URL, timeout=10) as resp:
                     if resp.status != 200:
-                        raise UpdateFailed(f"API returned HTTP {resp.status}")
+                        raise UpdateFailed(f"HTTP {resp.status}")
                     text = await resp.text()
                     raw = json.loads(text)
-                    data = raw.get("data", raw) if isinstance(raw, dict) else raw
-                    _LOGGER.debug("Fetched %d components from eHealth API",
-                                  len(data) if isinstance(data, list) else 0)
-                    return data
-        except Exception as err:
-            raise UpdateFailed(f"Error fetching eHealth data: {err}") from err
+                    return raw.get("data", raw) if isinstance(raw, dict) else raw
+        except Exception as e:
+            raise UpdateFailed(f"Error fetching data: {e}") from e
 
 
 class EHealthSensor(CoordinatorEntity, SensorEntity):
-    """A sensor for a single eHealth component."""
+    """Sensor for a single eHealth service."""
 
     def __init__(self, coordinator, component_id, name):
         super().__init__(coordinator)
@@ -79,8 +71,7 @@ class EHealthSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def state(self):
-        """Return the current status_name for this component."""
         for comp in self.coordinator.data:
-            if isinstance(comp, dict) and comp.get("id") == self._component_id:
+            if comp.get("id") == self._component_id:
                 return comp.get("status_name")
         return "unknown"
