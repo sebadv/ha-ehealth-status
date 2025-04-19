@@ -16,15 +16,15 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors for the user-selected language & services."""
-    # 1) Read language & services from entry.options (no fallback)
-    language = entry.options["language"]
-    services = entry.options["services"]
+    """Set up sensors for the selected language & services."""
+    # 1) Read language & services, falling back to entry.data on first install
+    language = entry.options.get("language", entry.data.get("language"))
+    services = entry.options.get("services", entry.data.get("services", []))
 
     # 2) Determine the correct API URL
     api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
 
-    # 3) Fetch full component list once to map name_nl→id
+    # 3) Fetch full component list once to map name_nl → id
     try:
         async with aiohttp.ClientSession() as session:
             resp = await session.get(api_url, timeout=10)
@@ -63,12 +63,7 @@ class EHealthCoordinator(DataUpdateCoordinator):
     """Coordinator fetching eHealth data every minute from a given API URL."""
 
     def __init__(self, hass, api_url: str):
-        super().__init__(
-            hass,
-            _LOGGER,
-            name="eHealth Status Coordinator",
-            update_interval=SCAN_INTERVAL,
-        )
+        super().__init__(hass, _LOGGER, name="eHealth Status Coordinator", update_interval=SCAN_INTERVAL)
         self.api_url = api_url
 
     async def _async_update_data(self):
