@@ -15,7 +15,7 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug("Setting up eHealth sensors")
 
-    selected_services = config_entry.data.get("selected_services", [])
+    selected_services = config_entry.options.get("selected_services") or config_entry.data.get("selected_services", [])
     initial_data = hass.data[DOMAIN].get("initial_data", [])
 
     coordinator = EHealthCoordinator(hass)
