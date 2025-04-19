@@ -4,6 +4,7 @@ import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.helpers import config_validation as cv
 from .const import DOMAIN, API_URL
 
 _LOGGER = logging.getLogger(__name__)
@@ -34,7 +35,6 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="cannot_connect")
 
         if user_input is not None:
-            # save selected services into data
             return self.async_create_entry(
                 title="eHealth Status",
                 data={"services": user_input["services"]},
@@ -42,7 +42,7 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema = vol.Schema({
             vol.Required("services", default=[]): vol.All(
-                vol.ensure_list,
+                cv.ensure_list,
                 [vol.In(services)],
             )
         })
@@ -50,7 +50,6 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user",
             data_schema=schema,
-            description_placeholders={},
             errors={},
         )
 
@@ -76,7 +75,7 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
 
         schema = vol.Schema({
             vol.Required("services", default=current): vol.All(
-                vol.ensure_list,
+                cv.ensure_list,
                 [vol.In(services)],
             )
         })
@@ -84,6 +83,5 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init",
             data_schema=schema,
-            description_placeholders={},
             errors={},
         )
