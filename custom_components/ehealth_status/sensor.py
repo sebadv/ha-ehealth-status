@@ -16,15 +16,15 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors for the selected language & services."""
-    # 1) Read language & services (fallback to data on first install)
-    language = entry.options.get("language", entry.data["language"])
-    services = entry.options.get("services", entry.data["services"])
+    """Set up sensors for the user-selected language & services."""
+    # 1) Read language & services from entry.options (no fallback)
+    language = entry.options["language"]
+    services = entry.options["services"]
 
-    # 2) Pick the correct API URL
+    # 2) Determine the correct API URL
     api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
 
-    # 3) Fetch the full list once to map name_nl → id
+    # 3) Fetch full component list once to map name_nl→id
     try:
         async with aiohttp.ClientSession() as session:
             resp = await session.get(api_url, timeout=10)
@@ -60,17 +60,19 @@ async def async_setup_entry(hass, entry, async_add_entities):
 
 
 class EHealthCoordinator(DataUpdateCoordinator):
-    """Fetch component status every minute from the given API URL."""
+    """Coordinator fetching eHealth data every minute from a given API URL."""
 
     def __init__(self, hass, api_url: str):
         super().__init__(
-            hass, _LOGGER,
+            hass,
+            _LOGGER,
             name="eHealth Status Coordinator",
-            update_interval=SCAN_INTERVAL
+            update_interval=SCAN_INTERVAL,
         )
         self.api_url = api_url
 
     async def _async_update_data(self):
+        """Fetch data from the eHealth status API."""
         try:
             async with aiohttp.ClientSession() as session:
                 resp = await session.get(self.api_url, timeout=10)
@@ -83,7 +85,7 @@ class EHealthCoordinator(DataUpdateCoordinator):
 
 
 class EHealthSensor(CoordinatorEntity, SensorEntity):
-    """Sensor for one eHealth service component."""
+    """Sensor for a single eHealth service component."""
 
     def __init__(self, coordinator, component_id: int, name: str):
         super().__init__(coordinator)
