@@ -17,11 +17,11 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up sensors for the selected language & services."""
-    # 1) Read language & services, falling back to entry.data on first install
+    # 1) Read language & services (fallback to entry.data if options absent)
     language = entry.options.get("language", entry.data.get("language"))
     services = entry.options.get("services", entry.data.get("services", []))
 
-    # 2) Determine the correct API URL
+    # 2) Pick the correct API URL
     api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
 
     # 3) Fetch full component list once to map name_nl → id
@@ -52,7 +52,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
         name   = comp.get("name_nl")
         status = comp.get("status_name")
         if cid in selected_ids and name and status:
-            sensors.append(EHealthSensor(coordinator, cid, name))
+            sensors.append(EHealthSensor(coordinator, comp))
 
     if not sensors:
         _LOGGER.warning("No eHealth services selected; no sensors added.")
@@ -63,7 +63,12 @@ class EHealthCoordinator(DataUpdateCoordinator):
     """Coordinator fetching eHealth data every minute from a given API URL."""
 
     def __init__(self, hass, api_url: str):
-        super().__init__(hass, _LOGGER, name="eHealth Status Coordinator", update_interval=SCAN_INTERVAL)
+        super().__init__(
+            hass,
+            _LOGGER,
+            name="eHealth Status Coordinator",
+            update_interval=SCAN_INTERVAL,
+        )
         self.api_url = api_url
 
     async def _async_update_data(self):
@@ -80,18 +85,30 @@ class EHealthCoordinator(DataUpdateCoordinator):
 
 
 class EHealthSensor(CoordinatorEntity, SensorEntity):
-    """Sensor for a single eHealth service component."""
+    """Sensor for a single eHealth service component, with extra attributes."""
 
-    def __init__(self, coordinator, component_id: int, name: str):
+    def __init__(self, coordinator: EHealthCoordinator, component: dict):
         super().__init__(coordinator)
-        self._component_id = component_id
-        self._attr_name = name
-        self._attr_unique_id = f"ehealth_{component_id}"
+        self._component_id = component.get("id")
+        self._attr_name = component.get("name_nl")
+        self._attr_unique_id = f"ehealth_{self._component_id}"
+        # Cache the static fields for attributes
+        self._attrs = {
+            "last_updated": component.get("last_updated"),
+            "group_name_nl": component.get("group_name_nl"),
+            "group_name_fr": component.get("group_name_fr"),
+            "status_code": component.get("status_code"),
+        }
 
     @property
-    def state(self):
+    def state(self) -> str:
         """Return the current status_name for this component."""
         for comp in self.coordinator.data:
             if comp.get("id") == self._component_id:
                 return comp.get("status_name")
         return "unknown"
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        """Return the extra attributes for this component."""
+        return self._attrs
