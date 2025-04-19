@@ -31,6 +31,9 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self):
+        self._language = None
+
     async def async_step_user(self, user_input=None):
         """Step 1: Choose language."""
         if user_input is not None:
@@ -46,18 +49,19 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user", data_schema=schema)
 
     async def async_step_services(self, user_input=None):
-        """Step 2: Multi‑select services from the chosen language endpoint."""
+        """Step 2: Multi‑select services from chosen language endpoint."""
         api_url = API_URL_NL if self._language == "Nederlands" else API_URL_FR
         services = await _fetch_services(api_url)
         if not services:
             return self.async_abort(reason="cannot_connect")
 
         if user_input is not None:
-            # Persist both language and services into entry.options
             return self.async_create_entry(
                 title="eHealth Status",
-                data={"language": self._language},
-                options={"services": user_input["services"]},
+                data={
+                    "language": self._language,
+                    "services": user_input["services"],
+                },
             )
 
         schema = vol.Schema({
@@ -68,12 +72,12 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        """Set up the options flow handler."""
+        """Return our options flow handler."""
         return EHealthOptionsFlow(config_entry)
 
 
 class EHealthOptionsFlow(config_entries.OptionsFlow):
-    """Options flow to change language and services after install."""
+    """Options flow to update language and services after install."""
 
     def __init__(self, config_entry):
         self.config_entry = config_entry
@@ -104,13 +108,15 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
         if not services:
             return self.async_abort(reason="cannot_connect")
 
-        default = self.config_entry.options.get("services", [])
+        default = self.config_entry.data.get("services", [])
         if user_input is not None:
-            # Persist language unchanged and new services into options
+            # recreate the entry to update both language & services
             return self.async_create_entry(
-                title="eHealth Status Options",
-                data={"language": self._language},
-                options={"services": user_input["services"]},
+                title="eHealth Status (Reconfigure)",
+                data={
+                    "language": self._language,
+                    "services": user_input["services"],
+                },
             )
 
         schema = vol.Schema({
