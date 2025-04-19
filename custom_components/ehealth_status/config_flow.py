@@ -11,21 +11,22 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def _fetch_services():
-    """Return a sorted list of all available name_nl service groups."""
+    """Fetch and return all name_nl values from the API."""
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get(API_URL, timeout=10) as resp:
-                text = await resp.text()
-                raw = json.loads(text)
-                data = raw.get("data", raw) if isinstance(raw, dict) else raw
-                return sorted({c.get("name_nl") for c in data if c.get("name_nl")})
+            resp = await session.get(API_URL, timeout=10)
+            text = await resp.text()
+            raw = json.loads(text)
+            data = raw.get("data", raw) if isinstance(raw, dict) else raw
+            # Deduplicate and sort
+            return sorted({c["name_nl"] for c in data if "name_nl" in c})
     except Exception as e:
         _LOGGER.error("Error fetching eHealth services: %s", e)
         return []
 
 
 class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for eHealth Status."""
+    """Handle the initial config flow."""
 
     VERSION = 1
 
@@ -41,10 +42,7 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
 
         schema = vol.Schema({
-            vol.Required("services", default=[]): vol.All(
-                cv.ensure_list,
-                [vol.In(services)],
-            )
+            vol.Required("services", default=[]): cv.multi_select(services)
         })
 
         return self.async_show_form(
@@ -58,7 +56,7 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 
 class EHealthOptionsFlow(config_entries.OptionsFlow):
-    """Allow users to change their service selection later."""
+    """Handle the options flow (re‑configure services)."""
 
     def __init__(self, entry):
         self.entry = entry
@@ -74,10 +72,7 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
             )
 
         schema = vol.Schema({
-            vol.Required("services", default=current): vol.All(
-                cv.ensure_list,
-                [vol.In(services)],
-            )
+            vol.Required("services", default=current): cv.multi_select(services)
         })
 
         return self.async_show_form(
