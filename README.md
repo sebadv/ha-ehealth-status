@@ -37,4 +37,31 @@ You can re‑run these steps anytime by going to **Settings → Devices & Serv
 ## 🧩 HACS Installation
 
 1. In Home Assistant go to **HACS → Integrations → ⋮ → Custom Repositories**  
-2. Add:
+2. Add: https://github.com/sebadv/ha-ehealth-status
+3. Select **Integration**  
+4. Install **eHealth Status**  
+5. Restart Home Assistant  
+6. Add the integration via **Settings → Devices & Services**
+
+## 🔄 Reconfiguration
+
+- After installation, click **Configure** on the integration entry to:
+- Change language  
+- Add or remove services  
+
+Changes take effect immediately (after the next poll) without re‑installing.
+
+## 🧾 Example Entities
+
+- `sensor.ehealth_<component_id>`  
+- e.g. `sensor.ehealth_12345`
+
+## 📦 Compatibility
+
+- ✅ Home Assistant Core 2024+  
+- ✅ HACS Custom Repository Compatible  
+
+---
+
+_Developed by [@sebadv](https://github.com/sebadv)_  
+
