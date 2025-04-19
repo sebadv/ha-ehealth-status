@@ -1,7 +1,7 @@
 {
   "domain": "ehealth_status",
   "name": "eHealth Status",
-  "version": "1.2.3",
+  "version": "1.2.5",
   "requirements": [],
   "codeowners": ["@sebadv"],
   "iot_class": "cloud_polling",
