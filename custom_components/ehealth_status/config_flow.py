@@ -12,7 +12,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def _fetch_services(api_url: str) -> list[str]:
-    """Fetch all name_nl values from the given API URL."""
+    """Fetch and return all name_nl values from the given API URL."""
     try:
         async with aiohttp.ClientSession() as session:
             resp = await session.get(api_url, timeout=10)
@@ -25,7 +25,7 @@ async def _fetch_services(api_url: str) -> list[str]:
 
 
 class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Initial config: language → services."""
+    """Handle initial config: select language, then services."""
 
     VERSION = 1
 
@@ -33,7 +33,7 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._language = None
 
     async def async_step_user(self, user_input=None):
-        """Step 1: select language."""
+        """Step 1: Choose language."""
         if user_input is not None:
             self._language = user_input["language"]
             return await self.async_step_services()
@@ -44,7 +44,7 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user", data_schema=schema)
 
     async def async_step_services(self, user_input=None):
-        """Step 2: multi‑select services."""
+        """Step 2: Multi‑select services."""
         api_url = API_URL_NL if self._language == "Nederlands" else API_URL_FR
         services = await _fetch_services(api_url)
         if not services:
@@ -53,35 +53,35 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_create_entry(
                 title="eHealth Status",
-                data={},  # no static data
-                options={
+                data={
                     "language": self._language,
                     "services": user_input["services"],
                 },
             )
 
-        # default to empty list on initial install
-        schema = vol.Schema({
-            vol.Required("services", default=[]): cv.multi_select(services)
-        })
-        return self.async_show_form(step_id="services", data_schema=schema)
+        return self.async_show_form(
+            step_id="services",
+            data_schema=vol.Schema({
+                vol.Required("services", default=[]): cv.multi_select(services)
+            }),
+        )
 
     @staticmethod
+    @callback
     def async_get_options_flow(config_entry):
-        """Return options flow handler."""
+        """Hook to the options flow."""
         return EHealthOptionsFlow(config_entry)
 
 
 class EHealthOptionsFlow(config_entries.OptionsFlow):
-    """Options flow: re‑select language & services."""
+    """Allow users to reconfigure language and services."""
 
     def __init__(self, config_entry):
         self.config_entry = config_entry
-        # prime with existing language
-        self._language = config_entry.options["language"]
+        self._language = config_entry.data["language"]
 
     async def async_step_init(self, user_input=None):
-        """Step 1: re‑select language."""
+        """Step 1 (options): Choose language."""
         if user_input is not None and "language" in user_input:
             self._language = user_input["language"]
             return await self.async_step_services()
@@ -89,30 +89,32 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
         schema = vol.Schema({
             vol.Required(
                 "language",
-                default=self.config_entry.options["language"]
+                default=self.config_entry.data["language"]
             ): vol.In(["Nederlands", "Français"])
         })
         return self.async_show_form(step_id="init", data_schema=schema)
 
     async def async_step_services(self, user_input=None):
-        """Step 2: re‑select services."""
+        """Step 2 (options): Multi‑select services."""
         api_url = API_URL_NL if self._language == "Nederlands" else API_URL_FR
         services = await _fetch_services(api_url)
         if not services:
             return self.async_abort(reason="cannot_connect")
 
-        current = self.config_entry.options.get("services", [])
+        current = self.config_entry.data.get("services", [])
         if user_input is not None and "services" in user_input:
+            # Only pass 'data'; Home Assistant will stash it in entry.options
             return self.async_create_entry(
                 title="eHealth Status Options",
-                data=None,
-                options={
+                data={
                     "language": self._language,
                     "services": user_input["services"],
                 },
             )
 
-        schema = vol.Schema({
-            vol.Required("services", default=current): cv.multi_select(services)
-        })
-        return self.async_show_form(step_id="services", data_schema=schema)
+        return self.async_show_form(
+            step_id="services",
+            data_schema=vol.Schema({
+                vol.Required("services", default=current): cv.multi_select(services)
+            }),
+        )
