@@ -7,7 +7,7 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     CoordinatorEntity,
-    UpdateFailed
+    UpdateFailed,
 )
 from .const import API_URL_NL, API_URL_FR
 
@@ -16,22 +16,22 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors for user‑selected services using correct language API."""
-    language = entry.data["language"]
+    """Set up sensors for selected services & language."""
+    language = entry.options["language"]
     api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
-    selected = entry.data.get("services", [])
+    selected = set(entry.options.get("services", []))
 
-    # Fetch full list for mapping name->id
+    # Fetch full component list once:
     try:
         async with aiohttp.ClientSession() as session:
             resp = await session.get(api_url, timeout=10)
-            text = await resp.text()
-            raw = json.loads(text)
+            raw = json.loads(await resp.text())
             all_data = raw.get("data", raw) if isinstance(raw, dict) else raw
     except Exception as e:
-        _LOGGER.error("Error fetching full component list: %s", e)
+        _LOGGER.error("Error fetching components list: %s", e)
         all_data = []
 
+    # Map name_nl → id
     name_to_id = {c["name_nl"]: c["id"] for c in all_data if "name_nl" in c and "id" in c}
     selected_ids = {name_to_id[n] for n in selected if n in name_to_id}
 
@@ -46,38 +46,30 @@ async def async_setup_entry(hass, entry, async_add_entities):
         if cid in selected_ids and name and status:
             sensors.append(EHealthSensor(coordinator, cid, name))
 
-    if not sensors:
-        _LOGGER.warning("No eHealth services selected; no sensors added.")
     async_add_entities(sensors, True)
 
 
 class EHealthCoordinator(DataUpdateCoordinator):
-    """Fetch component status every minute from a given API URL."""
+    """Coordinator fetching data periodically."""
 
     def __init__(self, hass, api_url):
-        super().__init__(
-            hass, _LOGGER,
-            name="eHealth Status Coordinator",
-            update_interval=SCAN_INTERVAL
-        )
+        super().__init__(hass, _LOGGER, name="eHealth Status Coordinator", update_interval=SCAN_INTERVAL)
         self.api_url = api_url
 
     async def _async_update_data(self):
-        """Fetch data from the eHealth status API."""
         try:
             async with aiohttp.ClientSession() as session:
                 resp = await session.get(self.api_url, timeout=10)
                 if resp.status != 200:
                     raise UpdateFailed(f"HTTP {resp.status}")
-                text = await resp.text()
-                raw = json.loads(text)
+                raw = json.loads(await resp.text())
                 return raw.get("data", raw) if isinstance(raw, dict) else raw
         except Exception as err:
-            raise UpdateFailed(f"Error fetching eHealth data: {err}") from err
+            raise UpdateFailed(f"Error fetching data: {err}") from err
 
 
 class EHealthSensor(CoordinatorEntity, SensorEntity):
-    """Sensor for a single eHealth service."""
+    """Sensor for one eHealth component."""
 
     def __init__(self, coordinator, component_id, name):
         super().__init__(coordinator)
@@ -87,7 +79,6 @@ class EHealthSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def state(self):
-        """Return the current status_name for this component."""
         for comp in self.coordinator.data:
             if comp.get("id") == self._component_id:
                 return comp.get("status_name")
