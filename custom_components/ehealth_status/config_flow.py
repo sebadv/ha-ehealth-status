@@ -8,7 +8,6 @@ from .const import DOMAIN, API_URL
 
 _LOGGER = logging.getLogger(__name__)
 
-
 class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
