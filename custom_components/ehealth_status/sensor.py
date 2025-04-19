@@ -7,47 +7,36 @@ from homeassistant.components.sensor import SensorEntity
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     CoordinatorEntity,
-    UpdateFailed,
+    UpdateFailed
 )
-from homeassistant.helpers import entity_registry as er
-from .const import API_URL
+from .const import API_URL_NL, API_URL_FR
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors only for user‑selected services, removing old ones."""
-
+    """Set up sensors only for selected services, using correct language API."""
+    language = entry.data["language"]
+    api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
     selected = entry.options.get("services") or entry.data.get("services", [])
-    # Extract selected component IDs for easy checking:
-    # We’ll match by unique_id prefix ehealth_<id>
-    # But to map name back to IDs, fetch all components first:
-    async with aiohttp.ClientSession() as session:
-        resp = await session.get(API_URL, timeout=10)
-        text = await resp.text()
-        raw = json.loads(text)
-        all_data = raw.get("data", raw) if isinstance(raw, dict) else raw
 
-    # Build a map from name_nl to id
+    # Fetch full list once for mapping name->id
+    try:
+        async with aiohttp.ClientSession() as session:
+            resp = await session.get(api_url, timeout=10)
+            text = await resp.text()
+            raw = json.loads(text)
+            all_data = raw.get("data", raw) if isinstance(raw, dict) else raw
+    except Exception as e:
+        _LOGGER.error("Error fetching full component list: %s", e)
+        all_data = []
+
     name_to_id = {c["name_nl"]: c["id"] for c in all_data if "name_nl" in c and "id" in c}
-    selected_ids = {name_to_id[name] for name in selected if name in name_to_id}
+    selected_ids = {name_to_id[n] for n in selected if n in name_to_id}
 
-    # 1) Remove any existing eHealth sensors not in selected_ids
-    registry = er.async_get(hass)
-    for entity in list(registry.entities.values()):
-        if entity.domain != "sensor" or not entity.unique_id.startswith("ehealth_"):
-            continue
-        try:
-            cid = int(entity.unique_id.split("_", 1)[1])
-        except (ValueError, IndexError):
-            continue
-        if cid not in selected_ids:
-            _LOGGER.debug("Removing deselected sensor: %s", entity.entity_id)
-            registry.async_remove(entity.entity_id)
-
-    # 2) Now set up coordinator and add new sensors
-    coordinator = EHealthCoordinator(hass)
+    # Remove old, add new
+    coordinator = EHealthCoordinator(hass, api_url)
     await coordinator.async_config_entry_first_refresh()
 
     sensors = []
@@ -59,31 +48,33 @@ async def async_setup_entry(hass, entry, async_add_entities):
             sensors.append(EHealthSensor(coordinator, cid, name))
 
     if not sensors:
-        _LOGGER.warning("No selected eHealth services found to create sensors.")
+        _LOGGER.warning("No eHealth services selected.")
     async_add_entities(sensors, True)
 
 
 class EHealthCoordinator(DataUpdateCoordinator):
-    """Fetch component status every minute."""
+    """Fetch component status every minute from a given API URL."""
 
-    def __init__(self, hass):
+    def __init__(self, hass, api_url):
         super().__init__(
             hass, _LOGGER,
             name="eHealth Status Coordinator",
-            update_interval=SCAN_INTERVAL,
+            update_interval=SCAN_INTERVAL
         )
+        self.api_url = api_url
 
     async def _async_update_data(self):
+        """Fetch data from the eHealth status API."""
         try:
             async with aiohttp.ClientSession() as session:
-                resp = await session.get(API_URL, timeout=10)
+                resp = await session.get(self.api_url, timeout=10)
                 if resp.status != 200:
                     raise UpdateFailed(f"HTTP {resp.status}")
                 text = await resp.text()
                 raw = json.loads(text)
                 return raw.get("data", raw) if isinstance(raw, dict) else raw
-        except Exception as e:
-            raise UpdateFailed(f"Error fetching data: {e}") from e
+        except Exception as err:
+            raise UpdateFailed(f"Error fetching eHealth data: {err}") from err
 
 
 class EHealthSensor(CoordinatorEntity, SensorEntity):
@@ -97,6 +88,7 @@ class EHealthSensor(CoordinatorEntity, SensorEntity):
 
     @property
     def state(self):
+        """Return the current status_name for this component."""
         for comp in self.coordinator.data:
             if comp.get("id") == self._component_id:
                 return comp.get("status_name")
