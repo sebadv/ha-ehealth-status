@@ -18,13 +18,13 @@ SCAN_INTERVAL = timedelta(seconds=60)
 async def async_setup_entry(hass, entry, async_add_entities):
     """Set up eHealth sensors from a config entry."""
     coordinator = EHealthCoordinator(hass)
-    # Fetch the first batch of data (raises if it fails)
+    # Fetch the first batch of data
     await coordinator.async_config_entry_first_refresh()
 
     sensors = []
     for comp in coordinator.data:
         cid = comp.get("id")
-        name = comp.get("component_name_nl")
+        name = comp.get("name_nl")         # ← use name_nl
         status = comp.get("status_name")
 
         if cid is None or name is None:
@@ -61,7 +61,8 @@ class EHealthCoordinator(DataUpdateCoordinator):
                     text = await resp.text()
                     raw = json.loads(text)
                     data = raw.get("data", raw) if isinstance(raw, dict) else raw
-                    _LOGGER.debug("Fetched %d components from eHealth API", len(data) if isinstance(data, list) else 0)
+                    _LOGGER.debug("Fetched %d components from eHealth API",
+                                  len(data) if isinstance(data, list) else 0)
                     return data
         except Exception as err:
             raise UpdateFailed(f"Error fetching eHealth data: {err}") from err
