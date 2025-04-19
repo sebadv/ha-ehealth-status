@@ -16,12 +16,12 @@ SCAN_INTERVAL = timedelta(seconds=60)
 
 
 async def async_setup_entry(hass, entry, async_add_entities):
-    """Set up sensors only for selected services, using correct language API."""
+    """Set up sensors for user‑selected services using correct language API."""
     language = entry.data["language"]
     api_url = API_URL_NL if language == "Nederlands" else API_URL_FR
-    selected = entry.options.get("services") or entry.data.get("services", [])
+    selected = entry.data.get("services", [])
 
-    # Fetch full list once for mapping name->id
+    # Fetch full list for mapping name->id
     try:
         async with aiohttp.ClientSession() as session:
             resp = await session.get(api_url, timeout=10)
@@ -35,7 +35,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
     name_to_id = {c["name_nl"]: c["id"] for c in all_data if "name_nl" in c and "id" in c}
     selected_ids = {name_to_id[n] for n in selected if n in name_to_id}
 
-    # Remove old, add new
     coordinator = EHealthCoordinator(hass, api_url)
     await coordinator.async_config_entry_first_refresh()
 
@@ -48,7 +47,7 @@ async def async_setup_entry(hass, entry, async_add_entities):
             sensors.append(EHealthSensor(coordinator, cid, name))
 
     if not sensors:
-        _LOGGER.warning("No eHealth services selected.")
+        _LOGGER.warning("No eHealth services selected; no sensors added.")
     async_add_entities(sensors, True)
 
 
