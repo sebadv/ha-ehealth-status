@@ -22,15 +22,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry):
                 if response.status != 200:
                     raise ConfigEntryNotReady(f"API status: {response.status}")
                 text = await response.text()
-                data = json.loads(text)
-                if isinstance(data, dict) and "data" in data:
-                    data = data["data"]
+                raw_data = json.loads(text)
+                # extract list of components
+                data = raw_data["data"] if isinstance(raw_data, dict) and "data" in raw_data else raw_data
     except Exception as e:
         raise ConfigEntryNotReady(f"Cannot connect to eHealth API: {e}")
 
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN]["initial_data"] = data
-
+    hass.data[DOMAIN]["entry"] = entry
+    
     hass.async_create_task(
         hass.config_entries.async_forward_entry_setup(entry, "sensor")
     )

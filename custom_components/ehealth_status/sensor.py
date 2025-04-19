@@ -15,7 +15,9 @@ _LOGGER = logging.getLogger(__name__)
 async def async_setup_entry(hass, config_entry, async_add_entities):
     _LOGGER.debug("Setting up eHealth sensors")
 
+    selected_services = config_entry.data.get("selected_services", [])
     initial_data = hass.data[DOMAIN].get("initial_data", [])
+
     coordinator = EHealthCoordinator(hass)
     coordinator.data = initial_data
     await coordinator.async_config_entry_first_refresh()
@@ -26,11 +28,12 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
             continue
         name = component.get("group_name_nl")
         status = component.get("status_name")
-        if name and status:
+        if name in selected_services and status:
             sensors.append(EHealthSensor(coordinator, name))
 
     async_add_entities(sensors, True)
     _LOGGER.debug("Added %d sensors", len(sensors))
+
 
 class EHealthCoordinator(DataUpdateCoordinator):
     def __init__(self, hass):
@@ -48,10 +51,8 @@ class EHealthCoordinator(DataUpdateCoordinator):
                     if response.status != 200:
                         raise UpdateFailed(f"API error: {response.status}")
                     text = await response.text()
-                    data = json.loads(text)
-                    if isinstance(data, dict) and "data" in data:
-                        return data["data"]
-                    return data
+                    raw_data = json.loads(text)
+                    return raw_data["data"] if isinstance(raw_data, dict) and "data" in raw_data else raw_data
         except Exception as err:
             raise UpdateFailed(f"Error fetching data: {err}")
 
