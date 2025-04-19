@@ -4,6 +4,7 @@ import aiohttp
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.core import callback      # ← Add this
 from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, API_URL_NL, API_URL_FR
@@ -25,16 +26,15 @@ async def _fetch_services(api_url: str) -> list[str]:
 
 
 class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle initial config and options (language → services)."""
+    """Handle initial config: language → services."""
 
     VERSION = 1
 
     def __init__(self):
-        # holds selected language between steps
         self._language: str | None = None
 
     async def async_step_user(self, user_input=None):
-        """Step 1: Choose language."""
+        """Step 1: Choose language."""
         if user_input is not None:
             self._language = user_input["language"]
             return await self.async_step_services()
@@ -45,14 +45,13 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="user", data_schema=schema)
 
     async def async_step_services(self, user_input=None):
-        """Step 2: Multi‑select services from chosen language endpoint."""
+        """Step 2: Multi‑select services."""
         api_url = API_URL_NL if self._language == "Nederlands" else API_URL_FR
         services = await _fetch_services(api_url)
         if not services:
             return self.async_abort(reason="cannot_connect")
 
         if user_input is not None:
-            # Store both language & services in entry.data
             return self.async_create_entry(
                 title="eHealth Status",
                 data={
@@ -67,33 +66,33 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="services", data_schema=schema)
 
     @staticmethod
-    @config_entries.callback
+    @callback
     def async_get_options_flow(entry):
         """Return the options flow handler."""
         return EHealthOptionsFlow(entry)
 
 
 class EHealthOptionsFlow(config_entries.OptionsFlow):
-    """Handle re‑configuration (language → services)."""
+    """Options flow: re‑select language & services."""
 
     def __init__(self, entry):
         self.entry = entry
         self._language = entry.data["language"]
 
     async def async_step_init(self, user_input=None):
-        """Step 1 (options): Choose language."""
+        """Step 1 (options): Choose language."""
         if user_input is not None and "language" in user_input:
             self._language = user_input["language"]
             return await self.async_step_services()
 
         schema = vol.Schema({
-            vol.Required("language", default=self.entry.data["language"]):
+            vol.Required("language", default=self.entry.data["language"]): 
                 vol.In(["Nederlands", "Français"])
         })
         return self.async_show_form(step_id="init", data_schema=schema)
 
     async def async_step_services(self, user_input=None):
-        """Step 2 (options): Multi‑select services."""
+        """Step 2 (options): Multi‑select services."""
         api_url = API_URL_NL if self._language == "Nederlands" else API_URL_FR
         services = await _fetch_services(api_url)
         if not services:
@@ -101,7 +100,6 @@ class EHealthOptionsFlow(config_entries.OptionsFlow):
 
         current = self.entry.data.get("services", [])
         if user_input is not None and "services" in user_input:
-            # Recreate the entry with updated data
             return self.async_create_entry(
                 title="eHealth Status Options",
                 data={
