@@ -18,37 +18,13 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             return self.async_create_entry(
                 title="eHealth Status",
-                data={"selected_services": user_input["services"]}
+                data={"selected_services": [user_input["services"]]}
             )
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({
-                vol.Required("services"): vol.All(
-                    vol.EnsureList,
-                    [vol.In(services)]
-                )
-            }),
-            errors={}
-        )
-
-    async def async_step_options(self, user_input=None):
-        services = await self._fetch_services()
-        current = self.options.get("selected_services", [])
-
-        if user_input is not None:
-            return self.async_create_entry(
-                title="eHealth Options",
-                data={"selected_services": user_input["services"]}
-            )
-
-        return self.async_show_form(
-            step_id="options",
-            data_schema=vol.Schema({
-                vol.Required("services", default=current): vol.All(
-                    vol.EnsureList,
-                    [vol.In(services)]
-                )
+                vol.Required("services"): vol.In(services)
             }),
             errors={}
         )
@@ -63,4 +39,4 @@ class EHealthConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     return sorted({c.get("group_name_nl") for c in components if "group_name_nl" in c})
         except Exception as e:
             _LOGGER.error("Error fetching eHealth services: %s", e)
-            return []
+            return ["eHealth Platform Services"]
