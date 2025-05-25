@@ -70,6 +70,10 @@ If you encounter any issues or have suggestions for improvements:
 1. Check the [documentation](https://github.com/sebadv/ha-ehealth-status)
 2. Report issues on our [issue tracker](https://github.com/sebadv/ha-ehealth-status/issues)
 
+If you like this integration, feel free to buy me a coffee:
+
+[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://buymeacoffee.com/seba.gent)
+
 ---
 
 _Developed by [@sebadv](https://github.com/sebadv)_
