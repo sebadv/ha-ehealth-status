@@ -1,6 +1,7 @@
 {
   "name": "eHealth Status",
   "content_in_root": false,
-  "zip_release": false,
+  "domains": ["sensor"],
+  "homeassistant": "2024.1.0",
   "render_readme": true
 }
