@@ -10,5 +10,6 @@
   "config_flow": true,
   "dependencies": [],
   "homeassistant": "2024.1.0",
-  "integration_type": "service"
+  "integration_type": "service",
+  "version_added": "1.0.0"
 }
