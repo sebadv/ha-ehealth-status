@@ -1,0 +1,26 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "eHealth Status",
+                "description": "Set up eHealth Status integration",
+                "data": {
+                    "language": "Language"
+                }
+            }
+        },
+        "abort": {
+            "already_configured": "eHealth Status is already configured"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "eHealth Status Options",
+                "data": {
+                    "language": "Language"
+                }
+            }
+        }
+    }
+} 
