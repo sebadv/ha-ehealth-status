@@ -4,6 +4,8 @@ This is a **custom integration for Home Assistant** that monitors the real‑tim
 
 [![Current Version](https://img.shields.io/badge/version-1.5.16-blue.svg)](https://github.com/sebadv/ha-ehealth-status)
 [![HACS Compatible](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/sebadv/ha-ehealth-status)
+[![HACS Action](https://github.com/sebadv/ha-ehealth-status/actions/workflows/hacs.yaml/badge.svg)](https://github.com/sebadv/ha-ehealth-status/actions/workflows/hacs.yaml)
+[![Validate with hassfest](https://github.com/sebadv/ha-ehealth-status/actions/workflows/hassfest.yaml/badge.svg)](https://github.com/sebadv/ha-ehealth-status/actions/workflows/hassfest.yaml)
 
 It supports **bilingual endpoints** (Dutch/French) and a **two‑step setup**:
 1. Select your preferred language (Nederlands / Français)  
