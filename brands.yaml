@@ -1,0 +1,7 @@
+ehealth_status:
+  domain: ehealth_status
+  name: eHealth Status
+  integration_type: service
+  documentation: https://github.com/sebadv/ha-ehealth-status
+  issue_tracker: https://github.com/sebadv/ha-ehealth-status/issues
+  codeowners: ["@sebadv"] 
